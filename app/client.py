@@ -53,10 +53,10 @@ class CloudPaymentsClient(AbstractInteractionClient):
         headers = self._set_request_id(headers)
         return headers
 
-    async def pay(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pay(self, **params: Any) -> Dict[str, Any]:
         url = self.endpoint_url(CloudPaymentsUrls.charge_pay)
 
-        body = {"json": self.schema.dump(kwargs)}
+        body = {"json": self.schema.dump(params)}
         headers = self._create_headers()
 
         data = {'headers': headers, **body}
