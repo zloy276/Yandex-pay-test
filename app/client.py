@@ -2,6 +2,7 @@ import base64
 from typing import Any, Dict
 
 from aiohttp import TCPConnector
+from aiohttp.web_response import Response, json_response
 
 from abstract_client import AbstractInteractionClient, InteractionResponseError
 from auth import BaseAuthorisation
@@ -33,7 +34,7 @@ class CloudPaymentsClient(AbstractInteractionClient):
     def _set_content_type(self, headers: dict = None) -> dict:
         if headers is None:
             headers = dict()
-        headers["headers"].update({'Content-Type': 'application/json'})
+        headers['Content-Type'] = 'application/json'
         return headers
 
     def _set_request_id(self, headers: dict = None) -> dict:
@@ -53,7 +54,7 @@ class CloudPaymentsClient(AbstractInteractionClient):
         headers = self._set_request_id(headers)
         return headers
 
-    async def pay(self, **params: Any) -> Dict[str, Any]:
+    async def pay(self, **params: Any) -> Response:
         url = self.endpoint_url(CloudPaymentsUrls.charge_pay)
 
         body = {"json": self.schema.dump(params)}
@@ -68,28 +69,13 @@ class CloudPaymentsClient(AbstractInteractionClient):
 
         await self.close()
         if response_success:
-            return response
+            return json_response(data=response, status=200)
         elif response_success is False and response.get('Message'):
-            raise InteractionResponseError(
-                message=response_message,
-                service=self.SERVICE,
-                status_code=400,
-                method='POST'
-            )
-        elif response_success is False and response_model and response_model.get('TransactionId'):
-            raise InteractionResponseError(
-                message='требуется 3-D Secure аутентификация',
-                service=self.SERVICE,
-                status_code=401,
-                method='POST'
-            )
+            return json_response(data={'message': response_message}, status=400)
         elif response_success is False and response_model and response_model.get('ReasonCode'):
-            raise InteractionResponseError(
-                message='требуется 3-D Secure аутентификация',
-                service=self.SERVICE,
-                status_code=response_model.get('ReasonCode'),
-                method='POST'
-            )
+            return json_response(data={'message': 'транзакция отклонена'}, status=response_model.get('ReasonCode'))
+        elif response_success is False and response_model and response_model.get('TransactionId'):
+            return json_response(data={'message': 'требуется 3-D Secure аутентификация'}, status=401)
         else:
             raise InteractionResponseError(
                 service=self.SERVICE,
